@@ -1,33 +1,43 @@
 ---
-name: POE-Component-Client-NNTP-Tail
-version: 0.01
+abstract: 'Sends events for new articles posted to an NNTP newsgroup'
 author:
   - 'David Golden <dagolden@cpan.org>'
-abstract: Sends events for new articles posted to an NNTP newsgroup
-license: apache
-resources:
-  license: http://apache.org/licenses/LICENSE-2.0
-requires:
-  Carp::POE: 0
-  POE: 1
-  POE::Component::Client::NNTP: 2.1
-  Params::Validate: 0
-  perl: 5.006
 build_requires:
-  Email::Date::Format: 1.002
-  Email::Simple: 2.003
-  POE::Component::Server::NNTP: 1.02
-  Test::More: 0.62
+  Email::Date::Format: 0
+  Email::Simple: 0
+  File::Find: 0
+  File::Temp: 0
+  Test::More: 0
+configure_requires:
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.200007, CPAN::Meta::Converter version 2.110930'
+license: apache
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: POE-Component-Client-NNTP-Tail
+no_index:
+  directory:
+    - t
+    - xt
+    - examples
+    - corpus
+  package:
+    - DB
 provides:
   POE::Component::Client::NNTP::Tail:
     file: lib/POE/Component/Client/NNTP/Tail.pm
-    version: 0.01
-generated_by: Module::Build version 0.280801
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
-no_index:
-  directory:
-    - examples
-    - inc
-    - t
+    version: 0.02
+requires:
+  Carp::POE: 0
+  POE: 0
+  POE::Component::Client::NNTP: 0
+  POE::Component::Server::NNTP: 0
+  Params::Validate: 0
+  perl: 5.006
+resources:
+  bugtracker: http://rt.cpan.org/Public/Dist/Display.html?Name=POE-Component-Client-NNTP-Tail
+  homepage: http://github.com/dagolden/poe-component-client-nntp-tail
+  repository: http://github.com/dagolden/poe-component-client-nntp-tail
+version: 0.02

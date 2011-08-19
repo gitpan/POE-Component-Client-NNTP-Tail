@@ -1,16 +1,9 @@
-# Copyright (c) 2008 by David Golden. All rights reserved.
-# Licensed under Apache License, Version 2.0 (the "License").
-# You may not use this file except in compliance with the License.
-# A copy of the License was distributed with this file or you may obtain a 
-# copy of the License from http://www.apache.org/licenses/LICENSE-2.0
-
 package POE::Component::Client::NNTP::Tail;
 use 5.006;
 use strict;
 use warnings;
-
-our $VERSION = '0.01';
-$VERSION = eval $VERSION; ## no critic
+# ABSTRACT: Sends events for new articles posted to an NNTP newsgroup
+our $VERSION = '0.02'; # VERSION
 
 use Carp::POE;
 use Params::Validate;
@@ -34,12 +27,12 @@ sub spawn {
   my %opts = validate( @_, \%spawn_args );
 
   POE::Session->create(
-    heap => \%opts, 
+    heap => \%opts,
     package_states => [
       # nntp component events
-      $class => { 
+      $class => {
         nntp_connected    => '_nntp_connected',
-        nntp_registered   => '_nntp_registered', 
+        nntp_registered   => '_nntp_registered',
         nntp_socketerr    => '_nntp_socketerr',
         nntp_disconnected => '_nntp_disconnected',
         nntp_200	        => '_nntp_server_ready',
@@ -60,15 +53,15 @@ sub spawn {
     ],
   );
 }
-  
+
 sub _debug {
   my $where = (caller(1))[3];
   $where =~ s{.*::}{P::C::C::N::T::};
   my @args = @_[ARG0 .. $#_];
-  for ( @args ) { 
+  for ( @args ) {
     $_ = 'undef' if not defined $_;
   }
-  my $args = @args ? join( " " => "", (map { "'$_'" } @args), "" ) : ""; 
+  my $args = @args ? join( " " => "", (map { "'$_'" } @args), "" ) : "";
   warn "$where->($args)\n";
   return;
 }
@@ -133,7 +126,7 @@ sub register {
 }
 
 #--------------------------------------------------------------------------#
-# unregister -- 
+# unregister --
 #
 # removes sender registration
 #--------------------------------------------------------------------------#
@@ -176,6 +169,7 @@ sub shutdown {
     $kernel->refcount_decrement( $listener, __PACKAGE__ );
     delete $heap->{listeners}{$listener};
   }
+  $kernel->alarm_remove_all();
   $kernel->call( $heap->{nntp_id} => 'unregister' => 'all' );
   $kernel->call( $heap->{nntp_id} => 'shutdown' );
   delete $heap->{nntp};
@@ -197,6 +191,7 @@ sub _poll {
   else {
     $kernel->yield( '_reconnect' );
   }
+  $kernel->delay( '_poll' => $heap->{Interval} );
   return;
 }
 
@@ -319,207 +314,247 @@ sub _nntp_got_article {
   delete $heap->{requests}{$article_id};
   return;
 }
- 
+
 1;
 
-__END__
 
-=begin wikidoc
 
-= NAME
+=pod
+
+=head1 NAME
 
 POE::Component::Client::NNTP::Tail - Sends events for new articles posted to an NNTP newsgroup
 
-= VERSION
+=head1 VERSION
 
-This documentation describes version %%VERSION%%.
+version 0.02
 
-= SYNOPSIS
+=head1 SYNOPSIS
 
-  use POE qw( Component::Client::NNTP::Tail );
-  use Email::Simple;
+   use POE qw( Component::Client::NNTP::Tail );
+   use Email::Simple;
+ 
+   POE::Component::Client::NNTP::Tail->spawn(
+     NNTPServer  => 'nntp.perl.org',
+     Group       => 'perl.cpan.testers',
+   );
+ 
+   POE::Session->create(
+     package_states => [
+       main => [qw(_start new_header got_article)]
+     ],
+   );
+ 
+   POE::Kernel->run;
+ 
+   # register for NNTP tail events
+   sub _start {
+     $_[KERNEL]->post( 'perl.cpan.testers' => 'register' );
+     return;
+   }
+ 
+   # get articles with subject 'FAIL' as 'got_article' events
+   sub new_header {
+     my ($article_id, $lines) = @_[ARG0, ARG1];
+     my $article = Email::Simple->new( join("\r\n", @$lines) );
+     if ( $article->header('Subject') =~ /^FAIL/ ) {
+       $_[KERNEL]->post(
+         'perl.cpan.testers' => 'get_article' => $article_id
+       );
+     }
+     return;
+   }
+ 
+   # find and print perl version components to terminal
+   sub got_article {
+     my ($article_id, $lines) = @_[ARG0, ARG1];
+     for my $text ( reverse @$lines ) {
+       if ( $text =~ /^Summary of my perl5 \(([^)]+)\)/ ) {
+         print "$1\n";
+         last;
+       }
+     }
+     return;
+   }
 
-  POE::Component::Client::NNTP::Tail->spawn(
-    NNTPServer  => 'nntp.perl.org',
-    Group       => 'perl.cpan.testers',
-  );
-
-  POE::Session->create(
-    package_states => [
-      main => [qw(_start new_header got_article)]
-    ],
-  );
-
-  POE::Kernel->run;
-
-  # register for NNTP tail events
-  sub _start {
-    $_[KERNEL]->post( 'perl.cpan.testers' => 'register' );
-    return;
-  }
-
-  # get articles with subject 'FAIL' as 'got_article' events
-  sub new_header {
-    my ($article_id, $lines) = @_[ARG0, ARG1];
-    my $article = Email::Simple->new( join("\r\n", @$lines) );
-    if ( $article->header('Subject') =~ /^FAIL/ ) {
-      $_[KERNEL]->post( 
-        'perl.cpan.testers' => 'get_article' => $article_id 
-      );
-    }
-    return;
-  }
-
-  # find and print perl version components to terminal
-  sub got_article {
-    my ($article_id, $lines) = @_[ARG0, ARG1];
-    for my $text ( reverse @$lines ) {
-      if ( $text =~ /^Summary of my perl5 \(([^)]+)\)/ ) {
-        print "$1\n";
-        last;
-      }
-    }
-    return;
-  }
-
-= DESCRIPTION
+=head1 DESCRIPTION
 
 This component periodically polls an NNTP newsgroup and posts POE events to
 component listeners as new articles are available.  These events contains the
 article ID and header text for the given articles.  This component also
 facilitates retrieving the full text of a particular article of interest.
 
-Internally, it uses [POE::Component::Client::NNTP] to manage the NNTP session.
+Internally, it uses L<POE::Component::Client::NNTP> to manage the NNTP session.
 
-= USAGE
+=head1 USAGE
 
 Spawn a new component session for each newsgroup to follow. Send the
-{register} event to specify an event to sent back when new articles arrive.
-Handle the new article event. Optionally, send the {get_article} event to 
+C<<< register >>> event to specify an event to sent back when new articles arrive.
+Handle the new article event. Optionally, send the C<<< get_article >>> event to
 request the full text of the article.
 
-== spawn
+=head2 spawn
 
-  POE::Component::Client::NNTP::Tail->spawn(
-    NNTPServer  => 'nntp.perl.org',
-    Group       => 'perl.cpan.testers',
-  );
+   POE::Component::Client::NNTP::Tail->spawn(
+     NNTPServer  => 'nntp.perl.org',
+     Group       => 'perl.cpan.testers',
+   );
 
-The {spawn} class method launches a new POE::Session to follow a given
-newsgroup.  The {NNTPServer} and {Group} arguments are required, all other
+The C<<< spawn >>> class method launches a new POE::Session to follow a given
+newsgroup.  The C<<< NNTPServer >>> and C<<< Group >>> arguments are required, all other
 arguments are optional:
 
-* NNTPServer (required) -- name or IP address of the NNTP server
-* Group (required) -- newsgroup to follow
-* Interval -- minimum number of seconds between checks for new messages
+=over
+
+=item *
+
+NNTPServer (required) -- name or IP address of the NNTP server
+
+=item *
+
+Group (required) -- newsgroup to follow
+
+=item *
+
+Interval -- minimum number of seconds between checks for new messages
 (defaults to 60)
-* Alias -- POE::Session alias name (defaults to the newsgroup name)
-* Port -- server port for NNTP connections
-* LocalAddr -- local address for outbound IP connection
-* Debug -- if true, a trace of events and arguments will be printed to STDERR
+
+=item *
+
+Alias -- POE::Session alias name (defaults to the newsgroup name)
+
+=item *
+
+Port -- server port for NNTP connections
+
+=item *
+
+LocalAddr -- local address for outbound IP connection
+
+=item *
+
+Debug -- if true, a trace of events and arguments will be printed to STDERR
+
+=back
 
 You must spawn multiple times to follow multiple newsgroups.
 
-= INPUT EVENTS
+=head1 INPUT EVENTS
 
 The component will respond to the following events.
 
-== register
+=head2 register
 
-  $_[KERNEL]->post( 'perl.cpan.testers' => register => $event_name );
+   $_[KERNEL]->post( 'perl.cpan.testers' => register => $event_name );
 
-This event notifies the component to post a {new_header} event to the sender
-when new articles arrive.  The event will be sent using the {$event_name}
+This event notifies the component to post a C<<< new_header >>> event to the sender
+when new articles arrive.  The event will be sent using the C<<< $event_name >>>
 provided, or will default to 'new_header'.  Multiple sessions may register
 with a single POE::Component::Client::NNTP::Tail session.
 
-== unregister
+=head2 unregister
 
-  $_[KERNEL]->post( 'perl.cpan.testers' => unregister );
+   $_[KERNEL]->post( 'perl.cpan.testers' => unregister );
 
 This event will stop the component from posting new_header events to the
 sender.
 
-== get_article
+=head2 get_article
 
-  $_[KERNEL]->post( 
-    'perl.cpan.testers' => get_article => $article_id => $event_name
-  );
+   $_[KERNEL]->post(
+     'perl.cpan.testers' => get_article => $article_id => $event_name
+   );
 
-This event requests that the full text of {$article_id} be returned in a
-{got_article} event.  The event will be sent using the {$event_name}
+This event requests that the full text of C<<< $article_id >>> be returned in a
+C<<< got_article >>> event.  The event will be sent using the C<<< $event_name >>>
 provided, or will default to 'got_article'.
 
-== shutdown
+=head2 shutdown
 
-  $_[KERNEL]->post( 'perl.cpan.testers' => 'shutdown' );
+   $_[KERNEL]->post( 'perl.cpan.testers' => 'shutdown' );
 
-This event requests that the component stop broadcasting events, 
+This event requests that the component stop broadcasting events,
 disconnect from the NNTP server and generally stop processing.
 
-= OUTPUT EVENTS
+=head1 OUTPUT EVENTS
 
 The component sends the following events types, though the actual event
-name may be different depending on what is specified in the {register} and
-{get_article} events.
+name may be different depending on what is specified in the C<<< register >>> and
+C<<< get_article >>> events.
 
-== new_header
+=head2 new_header
 
-  ($article_id, $lines) = @_[ARG0, ARG1];
+   ($article_id, $lines) = @_[ARG0, ARG1];
 
-The {new_header} event is sent when new articles are found in the newsgroup.
-The {$lines} argument is a reference to an array of lines that contain the
+The C<<< new_header >>> event is sent when new articles are found in the newsgroup.
+The C<<< $lines >>> argument is a reference to an array of lines that contain the
 article header.  Lines have had newlines removed.
 
-== got_article
+=head2 got_article
 
-  ($article_id, $lines) = @_[ARG0, ARG1];
+   ($article_id, $lines) = @_[ARG0, ARG1];
 
-The {got_article} event is sent when the full text of an article is retrieved.
-The {$lines} argument is a reference to an array of lines that contain the full
+The C<<< got_article >>> event is sent when the full text of an article is retrieved.
+The C<<< $lines >>> argument is a reference to an array of lines that contain the full
 article, including header and body text.  Lines have had newlines removed.
 
-= BUGS
+=head1 BUGS
 
-Please report any bugs or feature using the CPAN Request Tracker.  
-Bugs can be submitted through the web interface at 
-[http://rt.cpan.org/Dist/Display.html?Queue=POE-Component-Client-NNTP-Tail]
+Please report any bugs or feature using the CPAN Request Tracker.
+Bugs can be submitted through the web interface at
+L<http://rt.cpan.org/Dist/Display.html?Queue=POE-Component-Client-NNTP-Tail>
 
 When submitting a bug or request, please include a test-file or a patch to an
 existing test-file that illustrates the bug or desired feature.
 
-= SEE ALSO
+=head1 SEE ALSO
 
-* [POE]
-* [POE::Component::Client::NNTP]
+=over
 
-= AUTHOR
+=item *
 
-David A. Golden (DAGOLDEN)
+L<POE>
 
-Portions based on or inspired by code in
-POE::Component::SmokeBox::Uploads::NNTP by Chris Williams.
+=item *
 
-= COPYRIGHT AND LICENSE
+L<POE::Component::Client::NNTP>
 
-Copyright (c) 2008 by David A. Golden. All rights reserved.
+=back
 
-Licensed under Apache License, Version 2.0 (the "License").
-You may not use this file except in compliance with the License.
-A copy of the License was distributed with this file or you may obtain a 
-copy of the License from http://www.apache.org/licenses/LICENSE-2.0
+=for :stopwords cpan testmatrix url annocpan anno bugtracker rt cpants kwalitee diff irc mailto metadata placeholders
 
-Files produced as output though the use of this software, shall not be
-considered Derivative Works, but shall be considered the original work of the
-Licensor.
+=head1 SUPPORT
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+=head2 Bugs / Feature Requests
 
-=end wikidoc
+Please report any bugs or feature requests by email to C<bug-poe-component-client-nntp-tail at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/Public/Dist/Display.html?Name=POE-Component-Client-NNTP-Tail>. You will be automatically notified of any
+progress on the request by the system.
+
+=head2 Source Code
+
+This is open source software.  The code repository is available for
+public review and contribution under the terms of the license.
+
+L<http://github.com/dagolden/poe-component-client-nntp-tail>
+
+  git clone http://github.com/dagolden/poe-component-client-nntp-tail
+
+=head1 AUTHOR
+
+David Golden <dagolden@cpan.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2011 by David Golden.
+
+This is free software, licensed under:
+
+  The Apache License, Version 2.0, January 2004
 
 =cut
+
+
+__END__
+
 
