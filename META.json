@@ -4,7 +4,7 @@
       "David Golden <dagolden@cpan.org>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 4.200007, CPAN::Meta::Converter version 2.110930",
+   "generated_by" : "Dist::Zilla version 4.200012, CPAN::Meta::Converter version 2.112150",
    "license" : [
       "apache_2_0"
    ],
@@ -53,7 +53,7 @@
    "provides" : {
       "POE::Component::Client::NNTP::Tail" : {
          "file" : "lib/POE/Component/Client/NNTP/Tail.pm",
-         "version" : "0.02"
+         "version" : "0.03"
       }
    },
    "release_status" : "stable",
@@ -69,6 +69,6 @@
          "web" : "http://github.com/dagolden/poe-component-client-nntp-tail"
       }
    },
-   "version" : "0.02"
+   "version" : "0.03"
 }
 

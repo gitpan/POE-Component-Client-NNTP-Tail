@@ -3,7 +3,7 @@ NAME
     posted to an NNTP newsgroup
 
 VERSION
-    version 0.02
+    version 0.03
 
 SYNOPSIS
        use POE qw( Component::Client::NNTP::Tail );

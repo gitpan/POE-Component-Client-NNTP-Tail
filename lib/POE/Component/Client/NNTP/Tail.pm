@@ -3,7 +3,7 @@ use 5.006;
 use strict;
 use warnings;
 # ABSTRACT: Sends events for new articles posted to an NNTP newsgroup
-our $VERSION = '0.02'; # VERSION
+our $VERSION = '0.03'; # VERSION
 
 use Carp::POE;
 use Params::Validate;
@@ -327,7 +327,7 @@ POE::Component::Client::NNTP::Tail - Sends events for new articles posted to an 
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 

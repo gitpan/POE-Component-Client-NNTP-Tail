@@ -32,7 +32,7 @@ my %WriteMakefileArgs = (
     'POE::Component::Server::NNTP' => '0',
     'Params::Validate' => '0'
   },
-  'VERSION' => '0.02',
+  'VERSION' => '0.03',
   'test' => {
     'TESTS' => 't/*.t'
   }
